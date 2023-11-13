@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>NCCU Speedtest</title>
+<style type="text/css">
+	html,body{
+		border:none; padding:0; margin:0;
+		background:#FFFFFF;
+		color:#202020;
+	}
+	body{
+		text-align:center;
+		font-family:"Roboto",sans-serif;
+	}
+	h1{
+		color:#404040;
+	}
+	#startDownloadBtn{
+		display:inline-block;
+		margin:0 auto;
+		color:#6060AA;
+		background-color:rgba(0,0,0,0);
+		border:0.15em solid #6060FF;
+		border-radius:0.3em;
+		transition:all 0.3s;
+		box-sizing:border-box;
+		width:8em; height:3em;
+		line-height:2.7em;
+		cursor:pointer;
+		box-shadow: 0 0 0 rgba(0,0,0,0.1), inset 0 0 0 rgba(0,0,0,0.1);
+	}
+	#startDownloadBtn:hover{
+		box-shadow: 0 0 2em rgba(0,0,0,0.1), inset 0 0 1em rgba(0,0,0,0.1);
+	}
+	#startDownloadBtn.running{
+		background-color:#FF3030;
+		border-color:#FF6060;
+		color:#FFFFFF;
+	}
+	#startDownloadBtn:before{
+		content:"Start Download";
+	}
+	#startDownloadBtn.running:before{
+		content:"Abort Download";
+	}
+
+	
+	#startUploadBtn{
+		display:inline-block;
+		margin:0 auto;
+		color:#6060AA;
+		background-color:rgba(0,0,0,0);
+		border:0.15em solid #6060FF;
+		border-radius:0.3em;
+		transition:all 0.3s;
+		box-sizing:border-box;
+		width:8em; height:3em;
+		line-height:2.7em;
+		cursor:pointer;
+		box-shadow: 0 0 0 rgba(0,0,0,0.1), inset 0 0 0 rgba(0,0,0,0.1);
+	}
+	#startUploadBtn:hover{
+		box-shadow: 0 0 2em rgba(0,0,0,0.1), inset 0 0 1em rgba(0,0,0,0.1);
+	}
+	#startUploadBtn.running{
+		background-color:#FF3030;
+		border-color:#FF6060;
+		color:#FFFFFF;
+	}
+	#startUploadBtn:before{
+		content:"Start Upload";
+	}
+	#startUploadBtn.running:before{
+		content:"Abort Upload";
+	}
+	#test{
+		margin-top:2em;
+		margin-bottom:12em;
+	}
+        #footer{
+                clear;both;
+                height:180px;
+		font-size:1.4em;
+                test-align:center;
+                line-height:180px;
+        }
+	div.testArea{
+		display:inline-block;
+		width:16em;
+		height:12.5em;
+		position:relative;
+		box-sizing:border-box;
+	}
+	div.testName{
+		position:absolute;
+		top:0.1em; left:0;
+		width:100%;
+		font-size:1.4em;
+		z-index:9;
+	}
+	div.meterText{
+		position:absolute;
+		bottom:1.55em; left:0;
+		width:100%;
+		font-size:2.5em;
+		z-index:9;
+	}
+	div.meterText:empty:before{
+		content:"0.00";
+	}
+	div.unit{
+		position:absolute;
+		bottom:2em; left:0;
+		width:100%;
+		z-index:9;
+	}
+	div.testArea canvas{
+		position:absolute;
+		top:0; left:0; width:100%; height:100%;
+		z-index:1;
+	}
+	div.testGroup{
+		display:inline-block;
+	}
+	@media all and (max-width:65em){
+		body{
+			font-size:1.5vw;
+		}
+	}
+	@media all and (max-width:40em){
+		body{
+			font-size:0.8em;
+		}
+		div.testGroup{
+			display:block;
+			margin: 0 auto;
+		}
+	}
+
+</style>
+<script type="text/javascript">
+function I(id){return document.getElementById(id);}
+var meterBk="#E0E0E0";
+var dlColor="#6060AA",
+	ulColor="#309030",
+	pingColor="#AA6060",
+	jitColor="#AA6060";
+var progColor="#EEEEEE";
+
+//CODE FOR GAUGES
+function drawMeter(c,amount,bk,fg,progress,prog){
+	var ctx=c.getContext("2d");
+	var dp=window.devicePixelRatio||1;
+	var cw=c.clientWidth*dp, ch=c.clientHeight*dp;
+	var sizScale=ch*0.0055;
+	if(c.width==cw&&c.height==ch){
+		ctx.clearRect(0,0,cw,ch);
+	}else{
+		c.width=cw;
+		c.height=ch;
+	}
+	ctx.beginPath();
+	ctx.strokeStyle=bk;
+	ctx.lineWidth=16*sizScale;
+	ctx.arc(c.width/2,c.height-58*sizScale,c.height/1.8-ctx.lineWidth,-Math.PI*1.1,Math.PI*0.1);
+	ctx.stroke();
+	ctx.beginPath();
+	ctx.strokeStyle=fg;
+	ctx.lineWidth=16*sizScale;
+	ctx.arc(c.width/2,c.height-58*sizScale,c.height/1.8-ctx.lineWidth,-Math.PI*1.1,amount*Math.PI*1.2-Math.PI*1.1);
+	ctx.stroke();
+	if(typeof progress !== "undefined"){
+		ctx.fillStyle=prog;
+		ctx.fillRect(c.width*0.3,c.height-16*sizScale,c.width*0.4*progress,4*sizScale);
+	}
+}
+function mbpsToAmount(s){
+	return 1-(1/(Math.pow(1.3,Math.sqrt(s))));
+}
+function msToAmount(s){
+	return 1-(1/(Math.pow(1.08,Math.sqrt(s))));
+}
+
+//SPEEDTEST AND UI CODE
+var w=null; //speedtest worker
+var data=null; //data from worker
+function startDownalod(){
+	if(w!=null){
+		//speedtest is running, abort
+		w.postMessage('abort');
+		w=null;
+		data=null;
+		I("startDownloadBtn").className="";
+		initUI();
+	}else{
+		//test is not running, begin
+		w=new Worker('speedtest_worker_download.js');
+		w.postMessage('start'); //Add optional parameters as a JSON object to this command
+		I("startDownloadBtn").className="running";
+		w.onmessage=function(e){
+			data=JSON.parse(e.data);
+			var status=data.testState;
+			if(status>=4){
+				//test completed
+				I("startDownloadBtn").className="";
+				w=null;
+				updateUI(true);
+			}
+		};
+	}
+}
+
+
+function startUpload(){
+	if(w!=null){
+		//speedtest is running, abort
+		w.postMessage('abort');
+		w=null;
+		data=null;
+		I("startUploadBtn").className="";
+		initUI();
+	}else{
+		//test is not running, begin
+		w=new Worker('speedtest_worker_upload.js');
+		w.postMessage('start'); //Add optional parameters as a JSON object to this command
+		I("startUploadBtn").className="running";
+		w.onmessage=function(e){
+			data=JSON.parse(e.data);
+			var status=data.testState;
+			if(status>=4){
+				//test completed
+				I("startUploadBtn").className="";
+				w=null;
+				updateUI(true);
+			}
+		};
+	}
+}
+//this function reads the data sent back by the worker and updates the UI
+function updateUI(forced){
+	if(!forced&&(!data||!w)) return;
+	var status=data.testState;
+	I("dlText").textContent=(status==1&&data.dlStatus==0)?"...":data.dlStatus;
+	I("ulText").textContent=(status==3&&data.ulStatus==0)?"...":data.ulStatus;
+	I("pingText").textContent=data.pingStatus;
+	I("jitText").textContent=data.jitterStatus;
+}
+function oscillate(){
+	return 1+0.02*Math.sin(Date.now()/100);
+}
+//poll the status from the worker (this will call updateUI)
+setInterval(function(){
+	if(w) w.postMessage('status');
+},200);
+//update the UI every frame
+window.requestAnimationFrame=window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame||window.msRequestAnimationFrame||(function(callback,element){setTimeout(callback,1000/60);});
+function frame(){
+	requestAnimationFrame(frame);
+	updateUI();
+}
+frame(); //start frame loop
+//function to (re)initialize UI
+function initUI(){
+	I("dlText").textContent="";
+	I("ulText").textContent="";
+	I("pingText").textContent="";
+	I("jitText").textContent="";
+	I("ip").textContent="";
+}
+
+</script>
+</head>
+<body>
+<h1>Speed Test</h1>
+<div id="startDownloadBtn" onclick="startDownalod()"></div>
+<div id="startUploadBtn" onclick="startUpload()"></div>
+<div id="test">
+	<div class="testGroup">
+		<div class="testArea">
+			<div class="testName">Download 下載</div>
+			<div id="dlText" class="meterText"></div>
+			<div class="unit">Mbps</div>
+		</div>
+		<div class="testArea">
+			<div class="testName">Upload 上傳</div>
+			<div id="ulText" class="meterText"></div>
+			<div class="unit">Mbps</div>
+		</div>
+	</div>
+	<div class="testGroup">
+		<div class="testArea">
+			<div class="testName">Ping</div>
+			<div id="pingText" class="meterText"></div>
+			<div class="unit">ms</div>
+		</div>
+		<div class="testArea">
+			<div class="testName">Jitter</div>
+			<div id="jitText" class="meterText"></div>
+			<div class="unit">ms</div>
+		</div>
+	</div>
+</div>
+<script type="text/javascript">setTimeout(initUI,100);</script>
+</body>
+</html>
