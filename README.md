@@ -3,3 +3,5 @@
 使用專案[LibreSpeed](https://github.com/librespeed/speedtest)進行修改
 
 伺服器為LibreSpeed所提供的Tokyo, Japan (A573)
+
+網站: (https://syuanyikuo.github.io/speedtest/speedtest.html)
