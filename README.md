@@ -4,4 +4,4 @@
 
 伺服器為LibreSpeed所提供的Tokyo, Japan (A573)
 
-網站: (https://syuanyikuo.github.io/speedtest/speedtest.html)
+測速頁面: https://syuanyikuo.github.io/speedtest/speedtest.html
